@@ -1,3 +1,4 @@
+
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -9,7 +10,7 @@ import toast from "react-hot-toast";
 import clsx from "clsx";
 
 export default function CheckoutPage() {
-  const { groupedItems, totalAmount, refreshCart } = useCart();
+  const { groupedItems, totalAmount, cart, clearCart } = useCart();
   const { isAuthenticated, token } = useAuth();
   const router = useRouter();
 
@@ -28,7 +29,7 @@ export default function CheckoutPage() {
 
   useEffect(() => {
     if (!isAuthenticated) { router.push("/auth/login"); return; }
-    if (groupedItems.length === 0) { router.push("/cart"); return; }
+    if (!cart || cart.items.length === 0) { router.push("/cart"); return; }
 
     fetch("/api/users/addresses", {
       headers: { Authorization: `Bearer ${token}` },
@@ -63,19 +64,27 @@ export default function CheckoutPage() {
 
   const placeOrder = async () => {
     if (!selectedAddress) { toast.error("Please select a delivery address"); return; }
+    if (!cart || cart.items.length === 0) { toast.error("Your cart is empty"); return; }
+
     setIsPlacing(true);
     try {
       const res = await fetch("/api/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ deliveryAddress: selectedAddress, notes }),
+        body: JSON.stringify({
+          deliveryAddress: selectedAddress,
+          notes,
+          items: cart.items,
+        }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
 
-      await refreshCart();
-      toast.success(data.data.message || "Order placed!");
-      router.push(`/orders?success=1&group=${data.data.groupOrderId}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to place order.");
+
+      clearCart();
+      toast.success(data.message || "Order placed successfully!");
+      router.push(`/orders?success=1&group=${data.groupOrderId}`);
+
     } catch (err: unknown) {
       toast.error((err as Error).message || "Failed to place order");
     } finally {
@@ -97,7 +106,7 @@ export default function CheckoutPage() {
         <div className="space-y-3">
           {addresses.map((addr) => (
             <div
-              key={addr._id}
+             key={addr._id?.toString()}
               onClick={() => setSelectedAddress(addr)}
               className={clsx(
                 "flex items-start gap-3 p-4 rounded-xl border cursor-pointer transition-colors",

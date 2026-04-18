@@ -1,3 +1,4 @@
+
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { connectDB } from "@/lib/db";
@@ -7,17 +8,29 @@ import Restaurant from "@/lib/models/Restaurant";
 import Notification from "@/lib/models/Notification";
 import { withCustomerAuth, getPagination, successResponse, errorResponse, paginatedResponse } from "@/lib/utils/api";
 import { JwtPayload } from "@/lib/utils/jwt";
-import { nanoid } from "crypto";
+import { nanoid } from "nanoid";
+import mongoose from "mongoose";
 
 const placeOrderSchema = z.object({
   deliveryAddress: z.object({
+    _id: z.string().optional(),
     label: z.string().default("Home"),
     street: z.string().min(3),
     city: z.string().min(2),
     state: z.string().min(2),
     pincode: z.string().min(4),
+    isDefault: z.boolean().optional(),
   }),
   notes: z.string().max(200).optional(),
+  items: z.array(z.object({
+    menuItemId: z.string(),
+    restaurantId: z.string(),
+    name: z.string(),
+    price: z.number(),
+    image: z.string().optional(),
+    quantity: z.number().min(1),
+    foodType: z.enum(["veg", "non-veg", "egg"])
+  }))
 });
 
 // GET /api/orders — list user's orders
@@ -49,17 +62,17 @@ export const POST = withCustomerAuth(async (req: NextRequest, user: JwtPayload) 
     await connectDB();
     const body = await req.json();
     const parsed = placeOrderSchema.safeParse(body);
-    if (!parsed.success) return errorResponse(parsed.error.errors[0].message);
+    if (!parsed.success) return errorResponse(parsed.error.errors[0].message, 400);
 
-    // Load cart
-    const cart = await Cart.findOne({ userId: user.id });
-    if (!cart || cart.items.length === 0) {
+    const { deliveryAddress, notes, items: cartItems } = parsed.data;
+
+    if (!cartItems || cartItems.length === 0) {
       return errorResponse("Cart is empty", 400);
     }
 
     // Group cart items by restaurant
-    const groups: Record<string, typeof cart.items> = {};
-    cart.items.forEach((item) => {
+    const groups: Record<string, typeof cartItems> = {};
+    cartItems.forEach((item) => {
       const rid = item.restaurantId.toString();
       if (!groups[rid]) groups[rid] = [];
       groups[rid].push(item);
@@ -67,64 +80,63 @@ export const POST = withCustomerAuth(async (req: NextRequest, user: JwtPayload) 
 
     const restaurantIds = Object.keys(groups);
 
-    // Validate restaurants still exist and are open
     const restaurants = await Restaurant.find({
       _id: { $in: restaurantIds },
       isActive: true,
+      isOpen: true,
     }).lean();
 
     if (restaurants.length !== restaurantIds.length) {
-      return errorResponse("One or more restaurants are no longer available");
+      return errorResponse("One or more restaurants are currently unavailable", 400);
     }
 
-    // Shared group ID links all orders from this checkout
     const groupOrderId = nanoid(10).toUpperCase();
-    const DELIVERY_FEE = 30;
     const createdOrders = [];
 
     for (const restaurant of restaurants) {
       const rid = restaurant._id.toString();
-      const items = groups[rid];
+      const itemsInGroup = groups[rid];
 
-      const itemsTotal = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
+      const itemsTotal = itemsInGroup.reduce((sum, i) => sum + i.price * i.quantity, 0);
 
-      // Check min order
       if (itemsTotal < restaurant.minOrderAmount) {
         return errorResponse(
-          `Minimum order for ${restaurant.name} is ₹${restaurant.minOrderAmount}`
+          `Minimum order for ${restaurant.name} is ₹${restaurant.minOrderAmount}`,
+          400
         );
       }
 
-      const order = await Order.create({
-        userId: user.id,
+      const order = new Order({
+        userId: new mongoose.Types.ObjectId(user.id),
         restaurantId: restaurant._id,
         restaurantName: restaurant.name,
-        items: items.map((i) => ({
-          menuItemId: i.menuItemId,
+        items: itemsInGroup.map((i) => ({
+          menuItemId: new mongoose.Types.ObjectId(i.menuItemId),
           name: i.name,
           price: i.price,
           quantity: i.quantity,
           image: i.image,
           foodType: i.foodType,
         })),
-        deliveryAddress: parsed.data.deliveryAddress,
-        totalAmount: itemsTotal + DELIVERY_FEE,
-        deliveryFee: DELIVERY_FEE,
+        deliveryAddress: deliveryAddress,
+        totalAmount: itemsTotal + restaurant.deliveryFee,
+        deliveryFee: restaurant.deliveryFee,
         paymentMethod: "cash_on_delivery",
         paymentStatus: "pending",
-        notes: parsed.data.notes,
+        notes: notes,
         groupOrderId,
+        status: "pending",
         statusHistory: [{ status: "pending", timestamp: new Date() }],
         estimatedDeliveryTime: new Date(
           Date.now() + (restaurant.avgDeliveryTime || 45) * 60 * 1000
         ),
       });
 
+      await order.save();
       createdOrders.push(order);
 
-      // Create notification
       await Notification.create({
-        userId: user.id,
+        userId: new mongoose.Types.ObjectId(user.id),
         type: "order_placed",
         title: "Order placed!",
         message: `Your order from ${restaurant.name} (${order.orderId}) has been placed successfully.`,
@@ -132,18 +144,15 @@ export const POST = withCustomerAuth(async (req: NextRequest, user: JwtPayload) 
       });
     }
 
-    // Clear cart after successful order
-    await Cart.findOneAndUpdate({ userId: user.id }, { items: [] });
+    await Cart.findOneAndUpdate({ userId: user.id }, { $set: { items: [] } }, { new: true });
+
+    const orderId = createdOrders.map(o => o._id).join(',');
 
     return successResponse(
       {
-        orders: createdOrders,
+        orderId,
         groupOrderId,
-        totalOrders: createdOrders.length,
-        message:
-          createdOrders.length > 1
-            ? `${createdOrders.length} orders placed from different restaurants`
-            : "Order placed successfully",
+        message: `Order placed successfully! ${createdOrders.length > 1 ? `(${createdOrders.length} separate orders)` : ""}`,
       },
       201
     );
