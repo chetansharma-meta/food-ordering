@@ -1,3 +1,4 @@
+
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -5,15 +6,13 @@ import Link from "next/link";
 import { ChefHat, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/lib/context/AuthContext";
 import toast from "react-hot-toast";
-import clsx from "clsx";
 
 export default function RegisterPage() {
   const { register } = useAuth();
   const router = useRouter();
-  const [form, setForm] = useState({
-    name: "", email: "", password: "", phone: "",
-    role: "customer" as "customer" | "restaurant_owner",
-  });
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -21,9 +20,9 @@ export default function RegisterPage() {
     e.preventDefault();
     setIsLoading(true);
     try {
-      await register(form);
-      toast.success("Account created!");
-      router.push("/");
+      await register({ name, email, password });
+      toast.success("Account created successfully!");
+      router.push("/auth/login");
     } catch (err: unknown) {
       toast.error((err as Error).message || "Registration failed");
     } finally {
@@ -32,110 +31,84 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-orange-50 to-white dark:from-orange-950/20 dark:to-background">
-      <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
-          <div className="flex justify-center mb-3">
-            <div className="h-12 w-12 rounded-full bg-orange-500 flex items-center justify-center">
-              <ChefHat className="h-6 w-6 text-white" />
-            </div>
-          </div>
-          <h1 className="text-2xl font-bold">Create account</h1>
-          <p className="text-muted-foreground text-sm mt-1">Join FoodOrder today</p>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+      <div className="w-full max-w-md p-8 space-y-8 bg-white rounded-lg shadow-md dark:bg-gray-800">
+        <div className="text-center">
+          <ChefHat className="mx-auto h-12 w-auto text-gray-800 dark:text-gray-200" />
+          <h2 className="mt-6 text-3xl font-extrabold text-gray-900 dark:text-white">
+            Create a new account
+          </h2>
+          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+            Or{" "}
+            <Link href="/auth/login" className="font-medium text-blue-600 hover:text-blue-500">
+              sign in to your existing account
+            </Link>
+          </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Role selector */}
-          <div className="grid grid-cols-2 gap-2">
-            {(["customer", "restaurant_owner"] as const).map((r) => (
-              <button
-                key={r}
-                type="button"
-                onClick={() => setForm({ ...form, role: r })}
-                className={clsx(
-                  "py-2 rounded-lg text-sm font-medium border transition-colors",
-                  form.role === r
-                    ? "border-orange-500 bg-orange-50 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400"
-                    : "border-border hover:bg-accent"
-                )}
-              >
-                {r === "customer" ? "🧑 Customer" : "🍳 Restaurant Owner"}
-              </button>
-            ))}
-          </div>
-
-          <div>
-            <label className="text-sm font-medium mb-1.5 block">Full name</label>
-            <input
-              type="text"
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              required
-              placeholder="John Doe"
-              className="w-full px-4 py-2.5 rounded-lg border bg-background focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
-            />
-          </div>
-
-          <div>
-            <label className="text-sm font-medium mb-1.5 block">Email</label>
-            <input
-              type="email"
-              value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
-              required
-              placeholder="you@example.com"
-              className="w-full px-4 py-2.5 rounded-lg border bg-background focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
-            />
-          </div>
-
-          <div>
-            <label className="text-sm font-medium mb-1.5 block">Phone (optional)</label>
-            <input
-              type="tel"
-              value={form.phone}
-              onChange={(e) => setForm({ ...form, phone: e.target.value })}
-              placeholder="+91 XXXXX XXXXX"
-              className="w-full px-4 py-2.5 rounded-lg border bg-background focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
-            />
-          </div>
-
-          <div>
-            <label className="text-sm font-medium mb-1.5 block">Password</label>
+        <form onSubmit={handleSubmit} className="mt-8 space-y-6">
+          <div className="rounded-md shadow-sm -space-y-px">
+            <div>
+              <input
+                id="name"
+                name="name"
+                type="text"
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Full Name"
+                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"
+              />
+            </div>
+            <div>
+              <input
+                id="email-address"
+                name="email"
+                type="email"
+                autoComplete="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Email address"
+                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"
+              />
+            </div>
             <div className="relative">
               <input
+                id="password"
+                name="password"
                 type={showPw ? "text" : "password"}
-                value={form.password}
-                onChange={(e) => setForm({ ...form, password: e.target.value })}
+                autoComplete="new-password"
                 required
-                minLength={6}
-                placeholder="Min 6 characters"
-                className="w-full px-4 py-2.5 pr-10 rounded-lg border bg-background focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Password"
+                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"
               />
               <button
                 type="button"
                 onClick={() => setShowPw(!showPw)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-sm leading-5"
               >
-                {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                {showPw ? (
+                  <EyeOff className="h-5 w-5 text-gray-500" />
+                ) : (
+                  <Eye className="h-5 w-5 text-gray-500" />
+                )}
               </button>
             </div>
           </div>
 
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold py-2.5 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-          >
-            {isLoading ? "Creating account..." : "Create account"}
-          </button>
+          <div>
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+            >
+              {isLoading ? "Creating account..." : "Create account"}
+            </button>
+          </div>
         </form>
-
-        <p className="text-center text-sm text-muted-foreground mt-6">
-          Already have an account?{" "}
-          <Link href="/auth/login" className="text-orange-500 hover:text-orange-600 font-medium">
-            Sign in
-          </Link>
-        </p>
       </div>
     </div>
   );

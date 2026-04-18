@@ -1,17 +1,11 @@
-import Link from "next/link";
+
+import { ChefHat } from "lucide-react";
 
 export default function Footer() {
   return (
-    <footer className="bg-card border-t">
-      <div className="container py-8 flex items-center justify-between">
-        <p className="text-muted-foreground text-sm">
-          &copy; {new Date().getFullYear()} FoodOrder, Inc. All rights reserved.
-        </p>
-        <div className="flex gap-4">
-          <Link href="/about" className="text-sm hover:underline">About</Link>
-          <Link href="/contact" className="text-sm hover:underline">Contact</Link>
-          <Link href="/privacy" className="text-sm hover:underline">Privacy Policy</Link>
-        </div>
+    <footer className="bg-gray-100 dark:bg-gray-900 mt-auto">
+      <div className="container mx-auto px-4 py-6 text-center text-gray-600 dark:text-gray-400">
+        <p>&copy; {new Date().getFullYear()} FoodOrder. All Rights Reserved.</p>
       </div>
     </footer>
   );

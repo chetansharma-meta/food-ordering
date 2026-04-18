@@ -1,156 +1,172 @@
+
 "use client";
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
-import { ICart, ICartItem } from "@/types";
-import { useAuth } from "./AuthContext";
+import { ICart, ICartItem, IMenuItem, IRestaurant, ICartRestaurantGroup } from "@/types";
+import { menuItems as staticMenuItems, restaurants as staticRestaurants } from "@/lib/placeholder-data";
 import toast from "react-hot-toast";
+import { Types } from "mongoose";
 
+// --- Helper Functions ---
+const findMenuItem = (menuItemId: string): (IMenuItem & { _id: Types.ObjectId, restaurantId: Types.ObjectId, categoryId: Types.ObjectId }) | undefined => {
+  return staticMenuItems.find((item) => item._id.toString() === menuItemId);
+};
+
+const findRestaurant = (restaurantId: string): (IRestaurant & { _id: Types.ObjectId }) | undefined => {
+  return (staticRestaurants as any[]).find(r => r._id.toString() === restaurantId);
+}
+
+// --- Context Interfaces ---
 interface CartContextType {
   cart: ICart | null;
   totalItems: number;
   totalAmount: number;
-  groupedItems: GroupedCartItem[];
+  groupedItems: ICartRestaurantGroup[];
   isLoading: boolean;
-  addItem: (menuItemId: string, quantity?: number) => Promise<void>;
-  updateItem: (menuItemId: string, quantity: number) => Promise<void>;
-  removeItem: (menuItemId: string) => Promise<void>;
-  clearCart: () => Promise<void>;
-  refreshCart: () => Promise<void>;
+  addItem: (menuItemId: string, quantity?: number) => void;
+  updateItem: (menuItemId: string, quantity: number) => void;
+  removeItem: (menuItemId: string) => void;
+  clearCart: () => void;
 }
 
-interface GroupedCartItem {
-  restaurantId: string;
-  restaurantName?: string;
-  items: ICartItem[];
-  subtotal: number;
-}
-
+// --- Context Definition ---
 const CartContext = createContext<CartContextType | null>(null);
 
+// --- Provider Component ---
 export function CartProvider({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, token } = useAuth();
-  const [cart, setCart] = useState<ICart | null>(null);
-  const [groupedItems, setGroupedItems] = useState<GroupedCartItem[]>([]);
-  const [totalItems, setTotalItems] = useState(0);
-  const [totalAmount, setTotalAmount] = useState(0);
-  const [isLoading, setIsLoading] = useState(false);
+  const [cartItems, setCartItems] = useState<ICartItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const authHeaders = () => ({
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${token}`,
-  });
-
-  const refreshCart = useCallback(async () => {
-    if (!isAuthenticated || !token) {
-      setCart(null);
-      setGroupedItems([]);
-      setTotalItems(0);
-      setTotalAmount(0);
-      return;
-    }
+  // --- Effects ---
+  useEffect(() => {
+    // Load cart from localStorage on initial render
+    setIsLoading(true);
     try {
-      setIsLoading(true);
-      const res = await fetch("/api/cart", { headers: authHeaders() });
-      const data = await res.json();
-      if (data.success) {
-        setCart(data.data);
-        setGroupedItems(data.data.groupedItems || []);
-        setTotalItems(data.data.totalItems || 0);
-        setTotalAmount(data.data.totalAmount || 0);
+      const storedCart = localStorage.getItem("food-delivery-cart");
+      if (storedCart) {
+        setCartItems(JSON.parse(storedCart));
       }
-    } catch (err) {
-      console.error("Cart refresh error:", err);
-    } finally {
-      setIsLoading(false);
+    } catch (e) {
+      console.error("Failed to parse cart from localStorage", e);
+      setCartItems([]);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthenticated, token]);
+    setIsLoading(false);
+  }, []);
 
   useEffect(() => {
-    refreshCart();
-  }, [refreshCart]);
-
-  const addItem = useCallback(
-    async (menuItemId: string, quantity = 1) => {
-      if (!isAuthenticated) {
-        toast.error("Please login to add items");
-        return;
-      }
-      try {
-        const res = await fetch("/api/cart", {
-          method: "POST",
-          headers: authHeaders(),
-          body: JSON.stringify({ menuItemId, quantity }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error);
-        await refreshCart();
-        toast.success("Added to cart");
-      } catch (err: unknown) {
-        toast.error((err as Error).message || "Failed to add item");
-      }
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [isAuthenticated, token, refreshCart]
-  );
-
-  const updateItem = useCallback(
-    async (menuItemId: string, quantity: number) => {
-      try {
-        const res = await fetch("/api/cart", {
-          method: "PATCH",
-          headers: authHeaders(),
-          body: JSON.stringify({ menuItemId, quantity }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error);
-        await refreshCart();
-      } catch (err: unknown) {
-        toast.error((err as Error).message || "Failed to update cart");
-      }
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [token, refreshCart]
-  );
-
-  const removeItem = useCallback(
-    async (menuItemId: string) => {
-      await updateItem(menuItemId, 0);
-    },
-    [updateItem]
-  );
-
-  const clearCart = useCallback(async () => {
-    try {
-      await fetch("/api/cart", { method: "DELETE", headers: authHeaders() });
-      await refreshCart();
-    } catch (err) {
-      console.error("Clear cart error:", err);
+    // Save cart to localStorage whenever it changes
+    if (!isLoading) {
+      localStorage.setItem("food-delivery-cart", JSON.stringify(cartItems));
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, refreshCart]);
+  }, [cartItems, isLoading]);
 
-  return (
-    <CartContext.Provider
-      value={{
-        cart,
-        totalItems,
-        totalAmount,
-        groupedItems,
-        isLoading,
-        addItem,
-        updateItem,
-        removeItem,
-        clearCart,
-        refreshCart,
-      }}
-    >
-      {children}
-    </CartContext.Provider>
-  );
+  // --- Cart Actions ---
+  const addItem = useCallback((menuItemId: string, quantity = 1) => {
+    const menuItem = findMenuItem(menuItemId);
+    if (!menuItem) {
+      toast.error("Item not found!");
+      return;
+    }
+
+    const restaurantIdStr = menuItem.restaurantId.toString();
+
+    setCartItems(prevItems => {
+      // Block adding items from different restaurants
+      if (prevItems.length > 0 && prevItems[0].restaurantId !== restaurantIdStr) {
+        toast.error("You can only order from one restaurant at a time. Clear your cart to continue.");
+        return prevItems;
+      }
+
+      const existingItem = prevItems.find(item => item.menuItemId === menuItemId);
+
+      if (existingItem) {
+        toast.success(`Added another ${menuItem.name} to cart!`);
+        return prevItems.map(item =>
+          item.menuItemId === menuItemId ? { ...item, quantity: item.quantity + quantity } : item
+        );
+      } else {
+        const newItem: ICartItem = {
+          menuItemId: menuItem._id.toString(),
+          restaurantId: restaurantIdStr,
+          name: menuItem.name,
+          price: menuItem.price,
+          image: menuItem.image,
+          quantity: quantity,
+          foodType: menuItem.foodType,
+        };
+        toast.success(`${menuItem.name} added to cart!`);
+        return [...prevItems, newItem];
+      }
+    });
+  }, []);
+
+  const updateItem = useCallback((menuItemId: string, quantity: number) => {
+    setCartItems(prevItems => {
+      if (quantity <= 0) {
+        return prevItems.filter(item => item.menuItemId !== menuItemId);
+      }
+      return prevItems.map(item =>
+        item.menuItemId === menuItemId ? { ...item, quantity } : item
+      );
+    });
+  }, []);
+
+  const removeItem = useCallback((menuItemId: string) => {
+    const itemInCart = cartItems.find(i => i.menuItemId === menuItemId);
+    if (itemInCart) {
+      toast.success(`${itemInCart.name} removed from cart.`);
+    }
+    updateItem(menuItemId, 0);
+  }, [cartItems, updateItem]);
+
+  const clearCart = useCallback(() => {
+    setCartItems([]);
+    toast.success("Cart cleared.");
+  }, []);
+
+  // --- Calculated Properties ---
+  const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+  const totalAmount = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
+  const groupedItems: ICartRestaurantGroup[] = cartItems.length > 0 ? [
+    (() => {
+      const restaurant = findRestaurant(cartItems[0].restaurantId);
+      return {
+        restaurantId: cartItems[0].restaurantId,
+        restaurantName: restaurant?.name || "Unknown Restaurant",
+        items: cartItems,
+        subtotal: totalAmount,
+      };
+    })()
+  ] : [];
+
+  const cart: ICart | null = cartItems.length > 0 ? {
+    _id: "local-cart",
+    userId: "local-user",
+    items: cartItems,
+    updatedAt: new Date().toISOString(),
+  } : null;
+
+  // --- Provider Value ---
+  const value = {
+    cart,
+    totalItems,
+    totalAmount,
+    groupedItems,
+    isLoading,
+    addItem,
+    updateItem,
+    removeItem,
+    clearCart,
+  };
+
+  return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }
 
+// --- Custom Hook ---
 export function useCart() {
   const ctx = useContext(CartContext);
-  if (!ctx) throw new Error("useCart must be used within CartProvider");
+  if (!ctx) {
+    throw new Error("useCart must be used within a CartProvider");
+  }
   return ctx;
 }

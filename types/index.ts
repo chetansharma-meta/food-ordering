@@ -1,8 +1,11 @@
+
+import { Types } from 'mongoose';
+
 // ─── User ────────────────────────────────────────────────────────────────────
 export type UserRole = "customer" | "restaurant_owner" | "admin";
 
 export interface IAddress {
-  _id?: string;
+  _id?: Types.ObjectId;
   label: string; // Home, Work, Other
   street: string;
   city: string;
@@ -12,15 +15,15 @@ export interface IAddress {
 }
 
 export interface IUser {
-  _id: string;
+  _id: Types.ObjectId;
   name: string;
   email: string;
   phone?: string;
   role: UserRole;
   addresses: IAddress[];
   isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 // ─── Restaurant ──────────────────────────────────────────────────────────────
@@ -33,10 +36,12 @@ export type CuisineType =
   | "Fast Food"
   | "Desserts"
   | "Beverages"
-  | "Other";
+  | "Other"
+  | "American"
+  | "Middle Eastern";
 
 export interface IRestaurant {
-  _id: string;
+  _id: Types.ObjectId;
   name: string;
   description: string;
   cuisineTypes: CuisineType[];
@@ -49,21 +54,22 @@ export interface IRestaurant {
   };
   coverImage?: string;
   logo?: string;
-  rating: number;
-  reviewCount: number;
+  rating?: number;
+  reviewCount?: number;
   avgDeliveryTime: number; // in minutes
   minOrderAmount: number;
   isOpen: boolean;
   isActive: boolean;
-  ownerId: string;
-  createdAt: string;
-  updatedAt: string;
+  ownerId: Types.ObjectId;
+  createdAt: Date;
+  updatedAt: Date;
+  deliveryFee: number;
 }
 
 // ─── Category ────────────────────────────────────────────────────────────────
 export interface ICategory {
-  _id: string;
-  restaurantId: string;
+  _id: Types.ObjectId;
+  restaurantId: Types.ObjectId;
   name: string;
   sortOrder: number;
   isActive: boolean;
@@ -73,9 +79,9 @@ export interface ICategory {
 export type FoodType = "veg" | "non-veg" | "egg";
 
 export interface IMenuItem {
-  _id: string;
-  restaurantId: string;
-  categoryId: string;
+  _id: Types.ObjectId;
+  restaurantId: Types.ObjectId;
+  categoryId: Types.ObjectId;
   name: string;
   description?: string;
   price: number;
@@ -84,9 +90,9 @@ export interface IMenuItem {
   foodType: FoodType;
   isAvailable: boolean;
   isPopular: boolean;
-  preparationTime: number; // in minutes
-  createdAt: string;
-  updatedAt: string;
+  preparationTime?: number; // in minutes
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 // ─── Cart ────────────────────────────────────────────────────────────────────
@@ -124,7 +130,7 @@ export type OrderStatus =
   | "cancelled";
 
 export interface IOrderItem {
-  menuItemId: string;
+  menuItemId: Types.ObjectId;
   name: string;
   price: number;
   quantity: number;
@@ -134,15 +140,15 @@ export interface IOrderItem {
 
 export interface IOrderStatusHistory {
   status: OrderStatus;
-  timestamp: string;
+  timestamp: Date;
   note?: string;
 }
 
 export interface IOrder {
-  _id: string;
+  _id: Types.ObjectId;
   orderId: string; // human-readable: FO-XXXXX
-  userId: string;
-  restaurantId: string;
+  userId: Types.ObjectId;
+  restaurantId: Types.ObjectId;
   restaurantName: string;
   items: IOrderItem[];
   deliveryAddress: IAddress;
@@ -152,24 +158,24 @@ export interface IOrder {
   paymentMethod: "cash_on_delivery";
   paymentStatus: "pending" | "paid" | "failed";
   statusHistory: IOrderStatusHistory[];
-  estimatedDeliveryTime?: string;
+  estimatedDeliveryTime?: Date;
   notes?: string;
-  createdAt: string;
-  updatedAt: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 // ─── Notification ─────────────────────────────────────────────────────────────
 export type NotificationType = "order_placed" | "status_update" | "general";
 
 export interface INotification {
-  _id: string;
-  userId: string;
+  _id: Types.ObjectId;
+  userId: Types.ObjectId;
   type: NotificationType;
   title: string;
   message: string;
-  orderId?: string;
+  orderId?: Types.ObjectId;
   isRead: boolean;
-  createdAt: string;
+  createdAt: Date;
 }
 
 // ─── API Response Types ───────────────────────────────────────────────────────

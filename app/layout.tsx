@@ -1,3 +1,4 @@
+
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
@@ -10,8 +11,8 @@ import Footer from "@/components/layout/Footer";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "FoodOrder — Multi-Restaurant Food Ordering",
-  description: "Order from multiple restaurants in a single checkout",
+  title: "FoodOrder — Classic & Simple",
+  description: "A classic and minimal food ordering experience.",
 };
 
 export default function RootLayout({
@@ -20,20 +21,20 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body className={`${inter.className} flex flex-col min-h-screen`}>
+    <html lang="en" className="h-full">
+      <body className={`${inter.className} flex flex-col h-full`}>
         <AuthProvider>
           <CartProvider>
             <Navbar />
-            <main className="flex-grow bg-background">{children}</main>
+            <main className="flex-grow">{children}</main>
             <Footer />
             <Toaster
-              position="top-center"
+              position="bottom-right"
               toastOptions={{
-                duration: 3000,
+                duration: 4000,
                 style: {
-                  background: "hsl(var(--card))",
-                  color: "hsl(var(--card-foreground))",
+                  background: "hsl(var(--background))",
+                  color: "hsl(var(--foreground))",
                   border: "1px solid hsl(var(--border))",
                 },
               }}

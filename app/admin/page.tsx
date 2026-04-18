@@ -43,40 +43,7 @@ export default function AdminPage() {
   const [recentOrders, setRecentOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const handleOrderUpdate = useCallback((updatedOrder: Order) => {
-    setRecentOrders((prevOrders) => {
-      const orderExists = prevOrders.some((o) => o._id === updatedOrder._id);
-      if (orderExists) {
-        // Update existing order
-        return prevOrders.map((o) => (o._id === updatedOrder._id ? updatedOrder : o));
-      } else {
-        // Add new order to the top and maintain list size
-        return [updatedOrder, ...prevOrders].slice(0, 10);
-      }
-    });
-
-    // Also update pending order count in stats
-    if (updatedOrder.status === 'pending') {
-        setStats(prev => prev ? ({ ...prev, pendingOrders: prev.pendingOrders + 1 }) : null);
-    } else {
-        // More complex logic would be needed to decrement accurately
-    }
-
-  }, []);
-
-  useAdminSocket(handleOrderUpdate);
-
-  useEffect(() => {
-    if (authLoading) return;
-    if (!user || user.role !== "admin") {
-      router.push("/");
-      return;
-    }
-    loadData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, authLoading, token]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     if (!token) return;
     setIsLoading(true);
     const headers = { Authorization: `Bearer ${token}` };
@@ -90,7 +57,6 @@ export default function AdminPage() {
 
       if (statsData.success) setStats(statsData.data);
       if (ordersData.success) {
-        // Enriching customer name for the example
         const ordersWithCustomer = ordersData.data.map((o: any) => ({ ...o, customerName: o.customer?.name ?? 'N/A' }));
         setRecentOrders(ordersWithCustomer);
       }
@@ -99,104 +65,160 @@ export default function AdminPage() {
     } finally {
       setIsLoading(false);
     }
-  };
-  
-  if (isLoading || authLoading) {
+  }, [token]);
+
+  const handleOrderUpdate = useCallback((updatedOrder: Order) => {
+    setRecentOrders((prevOrders) => {
+      const orderExists = prevOrders.some((o) => o._id === updatedOrder._id);
+      if (orderExists) {
+        return prevOrders.map((o) => (o._id === updatedOrder._id ? updatedOrder : o));
+      } else {
+        return [updatedOrder, ...prevOrders].slice(0, 10);
+      }
+    });
+    
+    // Optimistically update stats
+    if (updatedOrder.status === 'pending') {
+        setStats(prev => prev ? ({ ...prev, pendingOrders: prev.pendingOrders + 1 }) : null);
+    }
+  }, []);
+
+  useAdminSocket(handleOrderUpdate);
+
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user || user.role !== "admin") {
+      router.push("/");
+      return;
+    }
+    loadData();
+  }, [user, authLoading, token, router, loadData]);
+
+  const statCards = [
+    { label: "Total Users", value: stats?.totalUsers ?? 0, icon: <Users className="h-6 w-6" /> },
+    { label: "Restaurants", value: stats?.totalRestaurants ?? 0, icon: <Store className="h-6 w-6" /> },
+    { label: "Total Orders", value: stats?.totalOrders ?? 0, icon: <Package className="h-6 w-6" /> },
+    { label: "Revenue", value: `₹${(stats?.totalRevenue ?? 0).toLocaleString()}`, icon: <TrendingUp className="h-6 w-6" /> },
+  ];
+
+  if (authLoading || (!user && !token)) {
     return (
-      <div className="container py-8 space-y-6">
-        <div className="h-8 w-48 bg-gray-200 rounded animate-pulse" />
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-28 rounded-xl bg-gray-200 animate-pulse" />
-          ))}
+        <div className="flex items-center justify-center h-screen bg-gray-100">
+            <div className="text-center">
+                <div className="loader ease-linear rounded-full border-8 border-t-8 border-gray-200 h-32 w-32 mb-4"></div>
+                <h2 className="text-xl font-semibold">Loading Dashboard...</h2>
+                <p className="text-gray-500">Please wait while we get things ready.</p>
+            </div>
         </div>
-        <div className="h-96 rounded-xl bg-gray-200 animate-pulse" />
-      </div>
     );
   }
 
-  const statCards = [
-    { label: "Total Users", value: stats?.totalUsers ?? 0, icon: <Users className="h-5 w-5" /> },
-    { label: "Restaurants", value: stats?.totalRestaurants ?? 0, icon: <Store className="h-5 w-5" /> },
-    { label: "Total Orders", value: stats?.totalOrders ?? 0, icon: <Package className="h-5 w-5" /> },
-    { label: "Revenue", value: `₹${(stats?.totalRevenue ?? 0).toLocaleString()}`, icon: <TrendingUp className="h-5 w-5" /> },
-  ];
-
   return (
-    <div className="container py-8 space-y-8">
-      <div className="flex justify-between items-center">
-        <div>
-            <h1 className="text-2xl font-bold">Admin Dashboard</h1>
-            <p className="text-gray-500 text-sm mt-1">Real-time platform overview</p>
-        </div>
-        <button onClick={loadData} className="px-4 py-2 text-sm font-medium text-white bg-black rounded-md hover:bg-gray-800">
-            Refresh Data
-        </button>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {statCards.map((card, i) => (
-          <div key={i} className="rounded-xl border p-5">
-            <div className="mb-3 text-gray-500">{card.icon}</div>
-            <p className="text-2xl font-bold">{card.value}</p>
-            <p className="text-sm text-gray-500 mt-0.5">{card.label}</p>
+    <div className="min-h-screen bg-gray-50">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <header className="flex justify-between items-start mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
+            <p className="text-sm text-gray-500 mt-1">Welcome back, {user?.name ?? 'Admin'}. Here's what's happening.</p>
           </div>
-        ))}
-      </div>
+          <button
+            onClick={loadData}
+            disabled={isLoading}
+            className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-indigo-300"
+          >
+            {isLoading ? 'Refreshing...' : 'Refresh'}
+          </button>
+        </header>
 
-      {(stats?.pendingOrders ?? 0) > 0 && (
-        <div className="p-4 rounded-xl bg-yellow-50 border border-yellow-200">
-          <p className="font-medium text-yellow-800">
-            ⚠️ {stats?.pendingOrders} order{stats?.pendingOrders !== 1 ? "s" : ""} awaiting confirmation
-          </p>
-          <Link href="/admin/orders?status=pending" className="text-sm text-yellow-700 hover:underline mt-0.5 block">
-            View pending orders →
-          </Link>
-        </div>
-      )}
+        {isLoading && recentOrders.length === 0 ? (
+          <div className="space-y-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="h-32 bg-white rounded-lg shadow-md animate-pulse" />
+              ))}
+            </div>
+            <div className="h-96 bg-white rounded-lg shadow-md animate-pulse" />
+          </div>
+        ) : (
+          <div className="space-y-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {statCards.map((card, i) => (
+                <div key={i} className="bg-white rounded-lg shadow-md p-6 flex flex-col justify-between">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-medium text-gray-500">{card.label}</p>
+                    <div className="text-gray-400">{card.icon}</div>
+                  </div>
+                  <p className="text-3xl font-bold text-gray-900 mt-2">{card.value}</p>
+                </div>
+              ))}
+            </div>
+            
+            {(stats?.pendingOrders ?? 0) > 0 && (
+              <div className="bg-yellow-100 border-l-4 border-yellow-400 text-yellow-700 p-4" role="alert">
+                <p className="font-bold">Heads up!</p>
+                <p>{stats?.pendingOrders} order{stats?.pendingOrders !== 1 ? "s are" : " is"} awaiting confirmation.</p>
+                <Link href="/admin/orders?status=pending" className="font-bold underline">
+                  View pending orders
+                </Link>
+              </div>
+            )}
 
-      <div>
-        <h2 className="text-lg font-semibold mb-4">Recent Orders</h2>
-        <div className="rounded-xl border bg-white overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-left">
-              <tr>
-                <th className="px-4 py-2 font-medium">Order ID</th>
-                <th className="px-4 py-2 font-medium">Customer</th>
-                <th className="px-4 py-2 font-medium">Restaurant</th>
-                <th className="px-4 py-2 font-medium">Amount</th>
-                <th className="px-4 py-2 font-medium">Status</th>
-                <th className="px-4 py-2 font-medium">Date</th>
-                <th className="px-4 py-2 font-medium"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {recentOrders.length === 0 ? (
-                <tr><td colSpan={7} className="p-8 text-center text-gray-500">No recent orders</td></tr>
-              ) : (
-                recentOrders.map((order) => (
-                  <tr key={order._id} className="border-b last:border-b-0">
-                    <td className="p-4 font-medium">{order.orderId}</td>
-                    <td className="p-4 text-gray-600">{order.customerName}</td>
-                    <td className="p-4 text-gray-600">{order.restaurantName}</td>
-                    <td className="p-4 font-semibold">₹{order.totalAmount.toFixed(2)}</td>
-                    <td className="p-4">
-                      <span className={clsx("text-xs px-2 py-1 rounded-full font-medium capitalize", STATUS_COLORS[order.status] || 'bg-gray-100')}>
-                        {order.status.replace("_", " ")}
-                      </span>
-                    </td>
-                    <td className="p-4 text-gray-600">{format(new Date(order.createdAt), "dd MMM, hh:mm a")}</td>
-                    <td className="p-4">
-                        <Link href={`/orders/${order._id}`}>
-                            <ChevronRight className="h-4 w-4 text-gray-500" />
-                        </Link>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+            <div className="bg-white rounded-lg shadow-md">
+              <div className="p-6 border-b border-gray-200">
+                <h2 className="text-xl font-semibold text-gray-900">Recent Orders</h2>
+                <p className="text-sm text-gray-500 mt-1">A list of the most recent orders.</p>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm text-left text-gray-500">
+                  <thead className="text-xs text-gray-700 uppercase bg-gray-50">
+                    <tr>
+                      <th scope="col" className="px-6 py-3">Order ID</th>
+                      <th scope="col" className="px-6 py-3">Customer</th>
+                      <th scope="col" className="px-6 py-3">Restaurant</th>
+                      <th scope="col" className="px-6 py-3">Amount</th>
+                      <th scope="col" className="px-6 py-3">Status</th>
+                      <th scope="col" className="px-6 py-3">Date</th>
+                      <th scope="col" className="px-6 py-3"><span className="sr-only">View</span></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {recentOrders.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="px-6 py-24 text-center">
+                          <div className="flex flex-col items-center">
+                            <Package className="w-12 h-12 text-gray-400" />
+                            <h3 className="text-lg font-medium text-gray-900 mt-2">No recent orders</h3>
+                            <p className="text-sm text-gray-500">New orders will appear here.</p>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : (
+                      recentOrders.map((order) => (
+                        <tr key={order._id} className="bg-white border-b hover:bg-gray-50">
+                          <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">{order.orderId}</td>
+                          <td className="px-6 py-4">{order.customerName}</td>
+                          <td className="px-6 py-4">{order.restaurantName}</td>
+                          <td className="px-6 py-4">₹{order.totalAmount.toFixed(2)}</td>
+                          <td className="px-6 py-4">
+                            <span className={clsx("inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium", STATUS_COLORS[order.status] || 'bg-gray-100 text-gray-800')}>
+                              {order.status.replace("_", " ")}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4">{format(new Date(order.createdAt), "dd MMM, yyyy - HH:mm")}</td>
+                          <td className="px-6 py-4 text-right">
+                            <Link href={`/orders/${order._id}`} className="font-medium text-indigo-600 hover:text-indigo-900">
+                              View
+                            </Link>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
