@@ -32,7 +32,6 @@ export default function OrderDetailPage() {
     const { token } = useAuth();
     const [order, setOrder] = useState<IOrder | null>(null);
     const [isLoading, setIsLoading] = useState(true);
-    const [isSimulating, setIsSimulating] = useState(false);
 
     const TrackingMap = useMemo(() => dynamic(() => import("@/components/maps/TrackingMap"), { ssr: false }), []);
 
@@ -51,25 +50,21 @@ export default function OrderDetailPage() {
             });
     }, [orderId, token]);
 
-    // Apply live update
+    // Refresh order data when an order update event arrives
     useEffect(() => {
-        if (liveUpdate && order) {
-            setOrder((prev) =>
-                prev ? { ...prev, status: liveUpdate.status } : prev
-            );
-        }
-    }, [liveUpdate, order]);
+        if (!liveUpdate || !token) return;
+        const refreshOrder = async () => {
+            const res = await fetch(`/api/orders/${orderId}`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            const data = await res.json();
+            if (data.success) {
+                setOrder(data.data);
+            }
+        };
 
-    const handleStartSimulation = async () => {
-        setIsSimulating(true);
-        await fetch("/api/delivery", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ orderId }),
-        });
-    };
+        refreshOrder();
+    }, [liveUpdate, orderId, token]);
 
     if (isLoading) {
         return (
@@ -105,10 +100,15 @@ export default function OrderDetailPage() {
                 </p>
             </div>
 
-            {/* Simulation button */}
-            <button onClick={handleStartSimulation} disabled={isSimulating} className="w-full bg-blue-500 text-white p-2 rounded-lg disabled:bg-gray-400">
-                {isSimulating ? "Simulation in Progress" : "Start Delivery Simulation"}
-            </button>
+            {/* Completed banner */}
+            {order.status === "delivered" && (
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 mb-4 text-sm text-emerald-800">
+                    <div className="flex items-center gap-2">
+                        <CheckCircle2 className="h-5 w-5" />
+                        <span>Order completed successfully.</span>
+                    </div>
+                </div>
+            )}
 
             {/* Map */}
             <div className="rounded-xl border bg-card p-6">
