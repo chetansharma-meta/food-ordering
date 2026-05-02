@@ -50,21 +50,25 @@ export default function OrderDetailPage() {
             });
     }, [orderId, token]);
 
-    // Refresh order data when an order update event arrives
+    // Update order state immediately when an order update event arrives
     useEffect(() => {
-        if (!liveUpdate || !token) return;
-        const refreshOrder = async () => {
-            const res = await fetch(`/api/orders/${orderId}`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            const data = await res.json();
-            if (data.success) {
-                setOrder(data.data);
-            }
-        };
+        if (!liveUpdate) return;
 
-        refreshOrder();
-    }, [liveUpdate, orderId, token]);
+        setOrder((prev) => {
+            if (!prev) return prev;
+            return {
+                ...prev,
+                status: liveUpdate.status,
+                statusHistory: [
+                    ...prev.statusHistory,
+                    {
+                        status: liveUpdate.status,
+                        timestamp: new Date(liveUpdate.timestamp),
+                    },
+                ],
+            };
+        });
+    }, [liveUpdate]);
 
     if (isLoading) {
         return (

@@ -25,8 +25,6 @@ const VALID_STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   cancelled: [],
 };
 
-type Params = { params: { orderId: string } };
-
 // GET /api/orders/[orderId]
 export const GET = withAuth(async (_req: NextRequest, user: JwtPayload, params?: Record<string, string>) => {
   try {
@@ -34,7 +32,6 @@ export const GET = withAuth(async (_req: NextRequest, user: JwtPayload, params?:
     const order = await Order.findOne({ _id: params?.orderId }).lean();
     if (!order) return errorResponse("Order not found", 404);
 
-    // Customers can only see their own orders
     if (user.role === "customer" && order.userId.toString() !== user.id) {
       return errorResponse("Forbidden", 403);
     }
@@ -54,7 +51,6 @@ export const PATCH = withOwnerAuth(
       const order = await Order.findById(params?.orderId);
       if (!order) return errorResponse("Order not found", 404);
 
-      // Owner can only update their restaurant's orders
       if (user.role === "restaurant_owner") {
         const Restaurant = (await import("@/lib/models/Restaurant")).default;
         const rest = await Restaurant.findById(order.restaurantId);
@@ -64,23 +60,19 @@ export const PATCH = withOwnerAuth(
       }
 
       const { status, note } = await req.json();
-
       if (!status) return errorResponse("status required");
 
       const currentStatus = order.status as OrderStatus;
       const allowed = VALID_STATUS_TRANSITIONS[currentStatus];
 
       if (!allowed.includes(status as OrderStatus)) {
-        return errorResponse(
-          `Cannot transition from "${currentStatus}" to "${status}"`
-        );
+        return errorResponse(`Cannot transition from "${currentStatus}" to "${status}"`);
       }
 
       order.status = status;
       order.statusHistory.push({ status, timestamp: new Date(), note });
       await order.save();
 
-      // Notify customer
       await Notification.create({
         userId: order.userId,
         type: "status_update",
@@ -89,7 +81,13 @@ export const PATCH = withOwnerAuth(
         orderId: order._id,
       });
 
-      // Emit socket event so tracking clients receive live updates
+      // Debug: log what's on global so we can confirm shared instance
+      console.log(
+        "[ORDER_PATCH] global socket key present:",
+        !!(global as any)["__socket_io_instance__"]
+      );
+
+      // ✅ Use _id (MongoDB ObjectId string) — matches what client joins via useParams
       emitOrderUpdate(order._id.toString(), {
         status,
         message: STATUS_MESSAGES[status as OrderStatus],

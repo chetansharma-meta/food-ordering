@@ -1,6 +1,5 @@
 // server.ts — Custom Next.js server with Socket.IO
-// Run with: npx ts-node --project tsconfig.server.json server.ts
-// Or: node server.js (after compiling)
+// Run with: ts-node server.ts
 
 const { createServer } = require("http");
 const { setSocketServer } = require("./lib/socket");
@@ -14,7 +13,7 @@ const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
 
 app.prepare().then(() => {
-  const httpServer = createServer((req, res) => {
+  const httpServer = createServer((req: any, res: any) => {
     const urlString = req.url || "/";
     const parsedUrl = new URL(urlString, `http://${req.headers.host}`);
     const nextUrl = {
@@ -24,7 +23,7 @@ app.prepare().then(() => {
     handle(req, res, nextUrl);
   });
 
-  const io = setSocketServer(httpServer);
+  setSocketServer(httpServer);
 
   httpServer.listen(port, () => {
     console.log(`> Ready on http://${hostname}:${port}`);

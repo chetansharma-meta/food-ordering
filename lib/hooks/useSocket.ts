@@ -52,6 +52,7 @@ export function useOrderTracking(orderId: string | null) {
 
   useEffect(() => {
     if (!orderId) return;
+    if (!socket.connected) socket.connect();
 
     socket.emit("join_order", orderId);
 
@@ -76,6 +77,7 @@ export function useDeliveryTracking(orderId: string | null) {
 
   useEffect(() => {
     if (!orderId) return;
+    if (!socket.connected) socket.connect();
 
     socket.emit("join_delivery_route", orderId);
 
@@ -100,6 +102,7 @@ export function useAdminSocket(onOrderUpdate: (order: any) => void) {
     const socket = useSocket();
   
     useEffect(() => {
+      if (!socket.connected) socket.connect();
       socket.emit("join_admin");
   
       socket.on("order_update", onOrderUpdate);
