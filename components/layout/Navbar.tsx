@@ -2,7 +2,7 @@
 "use client";
 import Link from "next/link";
 import { useAuth } from "@/lib/context/AuthContext";
-import { ChefHat, ShoppingCart, User, LogOut } from "lucide-react";
+import { ChefHat, ShoppingCart, User, LogOut, Package } from "lucide-react";
 import { useCart } from "@/lib/context/CartContext";
 
 export default function Navbar() {
@@ -20,6 +20,11 @@ export default function Navbar() {
           <Link href="/restaurants" className="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400">
             Restaurants
           </Link>
+          {user && (
+            <Link href="/orders" className="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400">
+              <Package className="h-6 w-6" />
+            </Link>
+          )}
           <Link href="/cart" className="relative text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400">
             <ShoppingCart className="h-6 w-6" />
             {cart && cart.items.length > 0 && (

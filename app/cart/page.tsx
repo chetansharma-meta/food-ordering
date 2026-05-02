@@ -76,15 +76,15 @@ export default function CartPage() {
               <div className="space-y-3 text-gray-600 dark:text-gray-300">
                 <div className="flex justify-between">
                   <span>Items total ({totalItems})</span>
-                  <span>${totalAmount.toFixed(2)}</span>
+                  <span>₹{totalAmount.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Delivery fee</span>
-                  <span>${(DELIVERY_FEE * restaurantCount).toFixed(2)}</span>
+                  <span>₹{(DELIVERY_FEE * restaurantCount).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between font-bold text-lg text-gray-800 dark:text-white border-t pt-4 mt-4 dark:border-gray-700">
                   <span>Grand Total</span>
-                  <span>${grandTotal.toFixed(2)}</span>
+                  <span>₹{grandTotal.toFixed(2)}</span>
                 </div>
               </div>
               <button
@@ -111,7 +111,7 @@ function CartItemRow({ item, onUpdate, onRemove }: { item: ICartItem; onUpdate: 
       )}
       <div className="flex-1">
         <h3 className="font-semibold text-gray-800 dark:text-white">{item.name}</h3>
-        <p className="text-sm text-gray-500 dark:text-gray-400">${item.price.toFixed(2)}</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400">₹{item.price.toFixed(2)}</p>
       </div>
       <div className="flex items-center gap-4">
         <div className="flex items-center border rounded-md dark:border-gray-600">
@@ -119,7 +119,7 @@ function CartItemRow({ item, onUpdate, onRemove }: { item: ICartItem; onUpdate: 
           <span className="px-3 font-semibold">{item.quantity}</span>
           <button onClick={() => onUpdate(id, item.quantity + 1)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-r-md"><Plus className="h-4 w-4" /></button>
         </div>
-        <p className="font-semibold w-20 text-right text-gray-800 dark:text-white">${(item.price * item.quantity).toFixed(2)}</p>
+        <p className="font-semibold w-20 text-right text-gray-800 dark:text-white">₹{(item.price * item.quantity).toFixed(2)}</p>
         <button onClick={() => onRemove(id)} className="text-gray-500 hover:text-red-500 dark:hover:text-red-400"><Trash2 className="h-5 w-5" /></button>
       </div>
     </div>

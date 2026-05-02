@@ -40,9 +40,11 @@ export const GET = withCustomerAuth(async (req: NextRequest, user: JwtPayload) =
     const { page, limit, skip } = getPagination(req);
     const { searchParams } = new URL(req.url);
     const status = searchParams.get("status");
+    const group = searchParams.get("group");
 
-    const query: Record<string, unknown> = { userId: user.id };
+    const query: Record<string, any> = { userId: user.id };
     if (status) query.status = status;
+    if (group) query.groupOrderId = group;
 
     const [orders, total] = await Promise.all([
       Order.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
@@ -82,13 +84,7 @@ export const POST = withCustomerAuth(async (req: NextRequest, user: JwtPayload) 
 
     const restaurants = await Restaurant.find({
       _id: { $in: restaurantIds },
-      isActive: true,
-      isOpen: true,
     }).lean();
-
-    if (restaurants.length !== restaurantIds.length) {
-      return errorResponse("One or more restaurants are currently unavailable", 400);
-    }
 
     const groupOrderId = nanoid(10).toUpperCase();
     const createdOrders = [];

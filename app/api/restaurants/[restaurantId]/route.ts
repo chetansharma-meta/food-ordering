@@ -47,6 +47,10 @@ export const PATCH = withOwnerAuth(
         if (body[f] !== undefined) updates[f] = body[f];
       });
 
+      if (user.role === "admin" && body.ownerId) {
+        updates.ownerId = body.ownerId;
+      }
+
       const updated = await Restaurant.findByIdAndUpdate(
         restaurantId,
         updates,

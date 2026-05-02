@@ -3,11 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "ts-node server.ts",
     "build": "next build",
     "start": "next start",
+    "dev:next": "next dev",
+    "server": "ts-node server.ts",
     "lint": "next lint",
-    "db:seed": "ts-node --compiler-options {\"module\":\"commonjs\"} seed-database.ts"
+    "db:seed": "ts-node --compiler-options '{\"module\":\"commonjs\",\"allowImportingTsExtensions\":true}' seed-database.ts",
+    "seed": "npm run db:seed"
   },
   "dependencies": {
     "@radix-ui/react-avatar": "^1.0.4",
@@ -45,6 +48,7 @@
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
     "autoprefixer": "^10.4.17",
+    "dotenv": "^16.3.1",
     "eslint": "^8.57.0",
     "eslint-config-next": "14.2.0",
     "postcss": "^8.4.35",

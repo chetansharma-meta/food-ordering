@@ -3,13 +3,25 @@ import { connectDB } from "@/lib/db";
 import User from "@/lib/models/User";
 import Restaurant from "@/lib/models/Restaurant";
 import Order from "@/lib/models/Order";
-import { withAdminAuth, getPagination, successResponse, errorResponse, paginatedResponse } from "@/lib/utils/api";
+import { withAuth, successResponse, errorResponse } from "@/lib/utils/api";
 import { JwtPayload } from "@/lib/utils/jwt";
 
 // GET /api/admin/stats
-export const GET = withAdminAuth(async (_req: NextRequest, _user: JwtPayload) => {
+export const GET = withAuth(async (_req: NextRequest, user: JwtPayload) => {
   try {
     await connectDB();
+
+    let restaurantFilter: Record<string, unknown> = {};
+    if (user.role === "restaurant_owner") {
+      restaurantFilter = { ownerId: user.id };
+    }
+
+    const restaurants = await Restaurant.find(restaurantFilter).select("_id").lean();
+    const restaurantIds = restaurants.map((rest) => rest._id);
+    const ordersFilter: Record<string, unknown> = {};
+    if (user.role === "restaurant_owner") {
+      ordersFilter.restaurantId = { $in: restaurantIds };
+    }
 
     const [
       totalUsers,
@@ -20,20 +32,19 @@ export const GET = withAdminAuth(async (_req: NextRequest, _user: JwtPayload) =>
       revenueResult,
     ] = await Promise.all([
       User.countDocuments({ role: "customer" }),
-      Restaurant.countDocuments({ isActive: true }),
-      Order.countDocuments(),
-      Order.countDocuments({ status: "pending" }),
-      Order.countDocuments({ status: "delivered" }),
+      Restaurant.countDocuments(restaurantFilter),
+      Order.countDocuments(ordersFilter),
+      Order.countDocuments({ ...ordersFilter, status: "pending" }),
+      Order.countDocuments({ ...ordersFilter, status: "delivered" }),
       Order.aggregate([
-        { $match: { status: "delivered" } },
+        { $match: { ...ordersFilter, status: "delivered" } },
         { $group: { _id: null, total: { $sum: "$totalAmount" } } },
       ]),
     ]);
 
-    // Orders per day (last 7 days)
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     const dailyOrders = await Order.aggregate([
-      { $match: { createdAt: { $gte: sevenDaysAgo } } },
+      { $match: { ...ordersFilter, createdAt: { $gte: sevenDaysAgo } } },
       {
         $group: {
           _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
@@ -57,4 +68,4 @@ export const GET = withAdminAuth(async (_req: NextRequest, _user: JwtPayload) =>
     console.error("[ADMIN_STATS]", error);
     return errorResponse("Internal server error", 500);
   }
-});
+}, ["admin", "restaurant_owner"]);

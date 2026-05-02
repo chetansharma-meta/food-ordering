@@ -82,8 +82,8 @@ export default function CheckoutPage() {
       if (!res.ok) throw new Error(data.error || "Failed to place order.");
 
       clearCart();
-      toast.success(data.message || "Order placed successfully!");
-      router.push(`/orders?success=1&group=${data.groupOrderId}`);
+      toast.success(data.data.message || "Order placed successfully!");
+      router.push(`/orders?success=1&group=${data.data.groupOrderId}`);
 
     } catch (err: unknown) {
       toast.error((err as Error).message || "Failed to place order");

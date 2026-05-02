@@ -1,12 +1,10 @@
 
 "use client";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { Search, Clock, Star, MapPin, Sparkles } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { IRestaurant } from "@/types";
-import clsx from "clsx";
-import { restaurants as staticRestaurants } from "@/lib/placeholder-data";
 
 export default function HomePage() {
   const [restaurants, setRestaurants] = useState<IRestaurant[]>([]);
@@ -14,18 +12,26 @@ export default function HomePage() {
   const [search, setSearch] = useState("");
 
   useEffect(() => {
-    setIsLoading(true);
-    let filteredRestaurants = staticRestaurants;
+    const loadRestaurants = async () => {
+      setIsLoading(true);
+      try {
+        const res = await fetch("/api/restaurants?limit=50");
+        const data = await res.json();
+        setRestaurants(data.success ? data.data : []);
+      } catch (error) {
+        console.error("Failed to load restaurants", error);
+        setRestaurants([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-    if (search) {
-      filteredRestaurants = filteredRestaurants.filter(r => 
-        r.name.toLowerCase().includes(search.toLowerCase())
-      );
-    }
+    loadRestaurants();
+  }, []);
 
-    setRestaurants(filteredRestaurants as any[]);
-    setIsLoading(false);
-  }, [search]);
+  const displayedRestaurants = search
+    ? restaurants.filter((r) => r.name.toLowerCase().includes(search.toLowerCase()))
+    : restaurants;
 
   return (
     <div className="bg-gray-50 dark:bg-gray-900 min-h-screen">
@@ -74,7 +80,7 @@ export default function HomePage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
             {Array.from({ length: 6 }).map((_, i) => <RestaurantCardSkeleton key={i} />)}
           </div>
-        ) : restaurants.length === 0 ? (
+        ) : displayedRestaurants.length === 0 ? (
           <div className="text-center py-20 rounded-lg bg-white dark:bg-gray-800 shadow-sm">
             <p className="text-6xl mb-4">🍽️</p>
             <h3 className="text-2xl font-semibold text-gray-800 dark:text-white">No Restaurants Found</h3>
@@ -82,7 +88,7 @@ export default function HomePage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-            {restaurants.map((r) => <RestaurantCard key={r._id} restaurant={r} />)}
+            {displayedRestaurants.map((r) => <RestaurantCard key={r._id.toString()} restaurant={r} />)}
           </div>
         )}
       </main>
@@ -123,9 +129,6 @@ function RestaurantCard({ restaurant }: { restaurant: IRestaurant }) {
             <span className="flex items-center gap-1.5">
               <Clock className="h-4 w-4" />
               {restaurant.avgDeliveryTime} min
-            </span>
-            <span className="font-semibold text-gray-800 dark:text-white">
-              {restaurant.deliveryFee === 0 ? "Free Delivery" : `$${restaurant.deliveryFee}`}
             </span>
           </div>
         </div>

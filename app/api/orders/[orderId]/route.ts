@@ -5,6 +5,7 @@ import Notification from "@/lib/models/Notification";
 import { withAuth, withOwnerAuth, successResponse, errorResponse } from "@/lib/utils/api";
 import { JwtPayload } from "@/lib/utils/jwt";
 import { OrderStatus } from "@/lib/models/Order";
+import { emitOrderUpdate } from "@/lib/socket";
 
 const STATUS_MESSAGES: Record<OrderStatus, string> = {
   pending: "Order received",
@@ -55,7 +56,7 @@ export const PATCH = withOwnerAuth(
 
       // Owner can only update their restaurant's orders
       if (user.role === "restaurant_owner") {
-        const { Restaurant } = await import("@/lib/models/Restaurant");
+        const Restaurant = (await import("@/lib/models/Restaurant")).default;
         const rest = await Restaurant.findById(order.restaurantId);
         if (!rest || rest.ownerId.toString() !== user.id) {
           return errorResponse("Forbidden", 403);
@@ -88,8 +89,13 @@ export const PATCH = withOwnerAuth(
         orderId: order._id,
       });
 
-      // Emit socket event (handled by server if socket server is running)
-      // Socket emission happens in the socket server file; here we return updated order
+      // Emit socket event so tracking clients receive live updates
+      emitOrderUpdate(order._id.toString(), {
+        status,
+        message: STATUS_MESSAGES[status as OrderStatus],
+        timestamp: new Date().toISOString(),
+      });
+
       return successResponse(order);
     } catch (error) {
       console.error("[ORDER_PATCH]", error);

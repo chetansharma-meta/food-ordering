@@ -1,12 +1,11 @@
 
 "use client";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { Search, Clock, Star } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { IRestaurant } from "@/types";
 import clsx from "clsx";
-import { restaurants as staticRestaurants } from "@/lib/placeholder-data";
 
 export default function RestaurantsPage() {
   const [restaurants, setRestaurants] = useState<IRestaurant[]>([]);
@@ -14,12 +13,26 @@ export default function RestaurantsPage() {
   const [search, setSearch] = useState("");
 
   useEffect(() => {
-    const filteredRestaurants = staticRestaurants.filter(r => 
-      r.name.toLowerCase().includes(search.toLowerCase())
-    );
-    setRestaurants(filteredRestaurants as any[]);
-    setIsLoading(false);
-  }, [search]);
+    const loadRestaurants = async () => {
+      setIsLoading(true);
+      try {
+        const res = await fetch("/api/restaurants?limit=50");
+        const data = await res.json();
+        setRestaurants(data.success ? data.data : []);
+      } catch (error) {
+        console.error("Failed to load restaurants", error);
+        setRestaurants([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadRestaurants();
+  }, []);
+
+  const displayedRestaurants = search
+    ? restaurants.filter((r) => r.name.toLowerCase().includes(search.toLowerCase()))
+    : restaurants;
 
   return (
     <div className="container py-12">
@@ -42,7 +55,7 @@ export default function RestaurantsPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
           {Array.from({ length: 8 }).map((_, i) => <RestaurantCardSkeleton key={i} />)}
         </div>
-      ) : restaurants.length === 0 ? (
+      ) : displayedRestaurants.length === 0 ? (
         <div className="text-center py-20 text-gray-500">
           <p className="text-5xl mb-4">🍽️</p>
           <p className="text-lg font-medium">No Restaurants Found</p>
@@ -50,7 +63,7 @@ export default function RestaurantsPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-          {restaurants.map((r:any) => <RestaurantCard key={r._id} restaurant={r} />)}
+          {displayedRestaurants.map((r:any) => <RestaurantCard key={r._id} restaurant={r} />)}
         </div>
       )}
     </div>
@@ -82,9 +95,6 @@ function RestaurantCard({ restaurant }: { restaurant: IRestaurant }) {
               {restaurant.rating?.toFixed(1) || "New"}
             </span>
             <span className="text-gray-500 dark:text-gray-400">{restaurant.avgDeliveryTime} min</span>
-            <span className="font-semibold text-gray-800 dark:text-white">
-              {restaurant.deliveryFee === 0 ? "Free Delivery" : `$${restaurant.deliveryFee}`}
-            </span>
           </div>
         </div>
       </div>

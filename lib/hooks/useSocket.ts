@@ -20,7 +20,11 @@ let socketInstance: Socket | null = null;
 
 function getSocket(): Socket {
   if (!socketInstance) {
-    socketInstance = io(process.env.NEXT_PUBLIC_SOCKET_URL || "", {
+    const socketUrl =
+      process.env.NEXT_PUBLIC_SOCKET_URL ||
+      (typeof window !== "undefined" ? window.location.origin : "");
+
+    socketInstance = io(socketUrl, {
       autoConnect: false,
     });
   }

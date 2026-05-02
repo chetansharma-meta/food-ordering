@@ -28,17 +28,21 @@ export interface IUser {
 
 // ─── Restaurant ──────────────────────────────────────────────────────────────
 export type CuisineType =
-  | "Indian"
-  | "Chinese"
-  | "Italian"
-  | "Mexican"
-  | "Continental"
+  | "North Indian"
+  | "South Indian"
+  | "Punjabi"
+  | "Mughlai"
+  | "Street Food"
   | "Fast Food"
+  | "Biryani"
+  | "Snacks"
+  | "Sweets"
   | "Desserts"
   | "Beverages"
-  | "Other"
-  | "American"
-  | "Middle Eastern";
+  | "Bakery"
+  | "Cafe"
+  | "Indian"
+  | "Other";
 
 export interface IRestaurant {
   _id: Types.ObjectId;
@@ -99,6 +103,7 @@ export interface IMenuItem {
 export interface ICartItem {
   menuItemId: string;
   restaurantId: string;
+  restaurantName?: string;
   name: string;
   price: number;
   image?: string;

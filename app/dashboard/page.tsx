@@ -52,8 +52,7 @@ export default function DashboardPage() {
   const loadData = async () => {
     const headers = { Authorization: `Bearer ${token}` };
     const [restRes, ordersRes] = await Promise.all([
-      fetch("/api/restaurants", { headers }),
-      // Get active orders for owned restaurants
+      fetch("/api/admin/restaurants?limit=50", { headers }),
       fetch("/api/admin/orders?limit=20", { headers }),
     ]);
     const restData = await restRes.json();

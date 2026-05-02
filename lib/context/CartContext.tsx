@@ -1,18 +1,32 @@
 
 "use client";
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
-import { ICart, ICartItem, IMenuItem, IRestaurant, ICartRestaurantGroup } from "@/types";
-import { menuItems as staticMenuItems, restaurants as staticRestaurants } from "@/lib/placeholder-data";
+import { ICart, ICartItem, IMenuItem, ICartRestaurantGroup } from "@/types";
 import toast from "react-hot-toast";
-import { Types } from "mongoose";
 
 // --- Helper Functions ---
-const findMenuItem = (menuItemId: string): (IMenuItem & { _id: Types.ObjectId, restaurantId: Types.ObjectId, categoryId: Types.ObjectId }) | undefined => {
-  return staticMenuItems.find((item) => item._id.toString() === menuItemId);
-};
+async function fetchMenuItem(menuItemId: string): Promise<IMenuItem | null> {
+  try {
+    const res = await fetch(`/api/menu-items/${menuItemId}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.success ? data.data : null;
+  } catch (error) {
+    console.error("Failed to fetch menu item", error);
+    return null;
+  }
+}
 
-const findRestaurant = (restaurantId: string): (IRestaurant & { _id: Types.ObjectId }) | undefined => {
-  return (staticRestaurants as any[]).find(r => r._id.toString() === restaurantId);
+async function fetchRestaurantName(restaurantId: string): Promise<string | null> {
+  try {
+    const res = await fetch(`/api/restaurants/${restaurantId}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.success ? data.data.name : null;
+  } catch (error) {
+    console.error("Failed to fetch restaurant", error);
+    return null;
+  }
 }
 
 // --- Context Interfaces ---
@@ -22,7 +36,7 @@ interface CartContextType {
   totalAmount: number;
   groupedItems: ICartRestaurantGroup[];
   isLoading: boolean;
-  addItem: (menuItemId: string, quantity?: number) => void;
+  addItem: (menuItemId: string, quantity?: number) => Promise<void>;
   updateItem: (menuItemId: string, quantity: number) => void;
   removeItem: (menuItemId: string) => void;
   clearCart: () => void;
@@ -60,39 +74,40 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   }, [cartItems, isLoading]);
 
   // --- Cart Actions ---
-  const addItem = useCallback((menuItemId: string, quantity = 1) => {
-    const menuItem = findMenuItem(menuItemId);
+  const addItem = useCallback(async (menuItemId: string, quantity = 1) => {
+    const menuItem = await fetchMenuItem(menuItemId);
     if (!menuItem) {
       toast.error("Item not found!");
       return;
     }
 
     const restaurantIdStr = menuItem.restaurantId.toString();
+    const restaurantName = (await fetchRestaurantName(restaurantIdStr)) ?? "Restaurant";
 
-    setCartItems(prevItems => {
-      // Block adding items from different restaurants
+    setCartItems((prevItems) => {
       if (prevItems.length > 0 && prevItems[0].restaurantId !== restaurantIdStr) {
         toast.error("You can only order from one restaurant at a time. Clear your cart to continue.");
         return prevItems;
       }
 
-      const existingItem = prevItems.find(item => item.menuItemId === menuItemId);
+      const existingItem = prevItems.find((item) => item.menuItemId === menuItemId);
 
       if (existingItem) {
         toast.success(`Added another ${menuItem.name} to cart!`);
-        return prevItems.map(item =>
+        return prevItems.map((item) =>
           item.menuItemId === menuItemId ? { ...item, quantity: item.quantity + quantity } : item
         );
       } else {
         const newItem: ICartItem = {
-          menuItemId: menuItem._id.toString(),
+          menuItemId,
           restaurantId: restaurantIdStr,
           name: menuItem.name,
           price: menuItem.price,
           image: menuItem.image,
           quantity: quantity,
           foodType: menuItem.foodType,
-        };
+          restaurantName,
+        } as ICartItem & { restaurantName: string };
         toast.success(`${menuItem.name} added to cart!`);
         return [...prevItems, newItem];
       }
@@ -128,15 +143,12 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const totalAmount = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
   const groupedItems: ICartRestaurantGroup[] = cartItems.length > 0 ? [
-    (() => {
-      const restaurant = findRestaurant(cartItems[0].restaurantId);
-      return {
-        restaurantId: cartItems[0].restaurantId,
-        restaurantName: restaurant?.name || "Unknown Restaurant",
-        items: cartItems,
-        subtotal: totalAmount,
-      };
-    })()
+    {
+      restaurantId: cartItems[0].restaurantId,
+      restaurantName: cartItems[0].restaurantName || "Restaurant",
+      items: cartItems,
+      subtotal: totalAmount,
+    },
   ] : [];
 
   const cart: ICart | null = cartItems.length > 0 ? {

@@ -16,6 +16,8 @@ export interface IUserDocument extends Document {
     isDefault: boolean;
   }[];
   isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
 }
 

@@ -6,7 +6,6 @@ import Image from "next/image";
 import { Star, Clock, ShoppingCart } from "lucide-react";
 import { IRestaurant, IMenuItem } from "@/types";
 import { useCart } from "@/lib/context/CartContext";
-import { restaurants as staticRestaurants, menuItems as staticMenuItems } from "@/lib/placeholder-data";
 
 export default function RestaurantPage() {
   const params = useParams();
@@ -18,21 +17,31 @@ export default function RestaurantPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (typeof id === 'string') {
+    if (typeof id === "string") {
       setIsLoading(true);
-      const foundRestaurant = staticRestaurants.find(r => r._id.toString() === id);
 
-      if (foundRestaurant) {
-        // Correctly filter menu items by restaurantId
-        const foundMenu = staticMenuItems.filter(m => m.restaurantId.toString() === id);
-        setRestaurant(foundRestaurant as any);
-        setMenu(foundMenu as any[]);
-      } else {
-        setRestaurant(null);
-        setMenu([]);
-      }
-      
-      setIsLoading(false);
+      const loadRestaurant = async () => {
+        try {
+          const [restaurantRes, menuRes] = await Promise.all([
+            fetch(`/api/restaurants/${id}`),
+            fetch(`/api/menu-items?restaurantId=${id}`),
+          ]);
+
+          const restaurantData = await restaurantRes.json();
+          const menuData = await menuRes.json();
+
+          setRestaurant(restaurantData.success ? restaurantData.data : null);
+          setMenu(menuData.success ? menuData.data : []);
+        } catch (error) {
+          console.error("Failed to load restaurant data", error);
+          setRestaurant(null);
+          setMenu([]);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+      loadRestaurant();
     }
   }, [id]);
 
@@ -69,9 +78,6 @@ export default function RestaurantPage() {
               <Clock className="h-5 w-5" />
               <span className="text-base">{restaurant.avgDeliveryTime} min</span>
             </span>
-            <span className="font-semibold text-base text-gray-800 dark:text-white">
-              {restaurant.deliveryFee === 0 ? "Free Delivery" : `$${restaurant.deliveryFee}`}
-            </span>
           </div>
           <p className="mt-4 text-gray-700 dark:text-gray-300 max-w-2xl">{restaurant.description}</p>
         </div>
@@ -100,7 +106,7 @@ function MenuItemCard({ item, onAddToCart }: { item: IMenuItem, onAddToCart: () 
         <h3 className="text-lg font-semibold mb-1 text-gray-800 dark:text-white">{item.name}</h3>
         <p className="text-sm text-gray-600 dark:text-gray-400 flex-grow mb-3">{item.description}</p>
         <div className="flex justify-between items-center">
-          <span className="font-bold text-lg text-blue-600">${item.price.toFixed(2)}</span>
+          <span className="font-bold text-lg text-blue-600">₹{item.price.toFixed(2)}</span>
           <button onClick={onAddToCart} className="px-4 py-2 bg-blue-600 text-white rounded-full text-sm font-semibold hover:bg-blue-700 transition-colors flex items-center gap-2">
             <ShoppingCart className="h-4 w-4" /> Add
           </button>

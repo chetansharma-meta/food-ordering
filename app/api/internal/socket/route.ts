@@ -1,6 +1,6 @@
 
 import { NextResponse } from "next/server";
-import { emitDeliveryLocationUpdate } from "../../../../server";
+import { emitDeliveryLocationUpdate } from "@/lib/socket";
 
 export async function POST(request: Request) {
     const { orderId, location } = await request.json();

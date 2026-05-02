@@ -134,7 +134,7 @@ function OrderCard({ order }: { order: IOrder }) {
             <p className="text-gray-600 dark:text-gray-300">Items: {order.items.length}</p>
           </div>
           <div className="text-right">
-            <p className="font-semibold text-lg text-blue-600">${order.totalAmount.toFixed(2)}</p>
+            <p className="font-semibold text-lg text-blue-600">₹{order.totalAmount.toFixed(2)}</p>
           </div>
         </div>
         <div className="flex justify-end mt-4">
